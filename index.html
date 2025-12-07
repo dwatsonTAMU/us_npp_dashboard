@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512070519 -->
+    <!-- Version: 202512070524 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1557,6 +1557,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
         const unit = site.units[0];
         const totalCap = site.units.reduce((s,u) => s + (u.capacity_mwe || 0), 0);
 
+        // Calculate 36-month and lifetime CFs for the site
+        const cf36mo = (() => {
+            const vals = site.units.filter(u => u.performance?.capacity_factor_1095d != null)
+                                   .map(u => u.performance.capacity_factor_1095d);
+            return vals.length ? vals.reduce((a,b) => a+b) / vals.length : null;
+        })();
+        const cfLifetime = (() => {
+            const vals = site.units.filter(u => u.performance?.capacity_factor_lifetime != null)
+                                   .map(u => u.performance.capacity_factor_lifetime);
+            return vals.length ? vals.reduce((a,b) => a+b) / vals.length : null;
+        })();
+
         const unitsHtml = site.units.map(u => {
             const p = u.performance || {};
             return `<div class="unit-card">
@@ -1591,7 +1603,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div class="info-item"><div class="info-label">Region</div><div class="info-value">${unit.nrc_region}</div></div>
                 <div class="info-item"><div class="info-label">Units</div><div class="info-value">${site.units.length}</div></div>
                 <div class="info-item"><div class="info-label">Capacity</div><div class="info-value">${totalCap} MWe</div></div>
-                <div class="info-item"><div class="info-label">Avg CF</div><div class="info-value">${cf != null ? cf.toFixed(1) + '%' : 'N/A'}</div></div>
+                <div class="info-item"><div class="info-label">CF (36mo)</div><div class="info-value">${cf36mo != null ? cf36mo.toFixed(1) + '%' : 'N/A'}</div></div>
+                <div class="info-item"><div class="info-label">CF (Lifetime)</div><div class="info-value">${cfLifetime != null ? cfLifetime.toFixed(1) + '%' : 'N/A'}</div></div>
             </div>
             <div style="margin-top:0.75rem">${unitsHtml}</div>
         </div>
