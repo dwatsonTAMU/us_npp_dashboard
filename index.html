@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512070456 -->
+    <!-- Version: 202512070501 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1614,7 +1614,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>
             `).join('')}
             <div style="font-size:0.75rem;color:var(--text-muted)">
-                <div><strong>Operator:</strong> ${unit.parent_company || 'N/A'}</div>
+                <div><strong>Operator:</strong> ${unit.parent_website
+                    ? `<a href="https://${unit.parent_website.replace(/^https?:\/\//, '')}" target="_blank" style="color:var(--tamu-maroon)">${unit.parent_company || 'N/A'}</a>`
+                    : (unit.parent_company || 'N/A')}</div>
                 <div><strong>Containment:</strong> ${unit.containment_type || 'N/A'}</div>
             </div>
         </div>`;
