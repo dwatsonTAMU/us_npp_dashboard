@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512070421 -->
+    <!-- Version: 202512070423 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -401,6 +401,41 @@
         .news-link {
             font-size: 0.7rem;
             color: var(--tamu-maroon);
+        }
+
+        .news-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .news-filter-btn {
+            padding: 0.2rem 0.4rem;
+            border: 1px solid var(--border-color);
+            background: var(--bg-light);
+            border-radius: 3px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .news-filter-btn:hover {
+            border-color: var(--tamu-maroon);
+            color: var(--tamu-maroon);
+        }
+
+        .news-filter-btn.active {
+            background: var(--tamu-maroon);
+            color: white;
+            border-color: var(--tamu-maroon);
+        }
+
+        .news-list {
+            max-height: 220px;
+            overflow-y: auto;
         }
 
         .unit-card {
@@ -1581,7 +1616,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>`;
     }
 
+    let newsCounter = 0;
     function getNewsHtml(units) {
+        const newsId = 'news-' + (++newsCounter);
+
         // Collect news from ALL units at the site
         let allItems = [];
         for (const u of units) {
@@ -1590,24 +1628,67 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 // Add unit identifier to each item
                 const unitLabel = u.name.match(/Unit\s*\d+|\d+$/)?.[0] || '';
                 docketNews.documents.forEach(item => {
-                    allItems.push({ ...item, unitLabel });
+                    allItems.push({ ...item, unitLabel, multiUnit: units.length > 1 });
                 });
             }
         }
 
-        // Sort by date descending and take top 8
+        // Sort by date descending
         allItems.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const items = allItems.slice(0, 8);
 
-        if (!items.length) {
+        if (!allItems.length) {
             return '<p style="color:var(--text-muted);font-size:0.8rem">No recent regulatory news available.</p>';
         }
 
+        // Get unique categories from this site's news
+        const categories = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
+
+        // Store news data for filtering
+        window.newsData = window.newsData || {};
+        window.newsData[newsId] = allItems;
+
+        // Build filter buttons
+        const filterBtns = `<div class="news-filters">
+            <button class="news-filter-btn active" onclick="filterNews('${newsId}', 'all', this)">All</button>
+            ${categories.map(cat =>
+                `<button class="news-filter-btn" onclick="filterNews('${newsId}', '${cat}', this)">${cat}</button>`
+            ).join('')}
+        </div>`;
+
+        // Build initial news list (show all, limit 10)
+        const newsListHtml = renderNewsItems(allItems.slice(0, 10));
+
+        return `${filterBtns}<div class="news-list" id="${newsId}">${newsListHtml}</div>`;
+    }
+
+    function renderNewsItems(items) {
         return items.map(item => `<div class="news-item">
-            <div class="news-date">${item.date || ''} | ${item.category || ''}${units.length > 1 && item.unitLabel ? ' | ' + item.unitLabel : ''}</div>
+            <div class="news-date">${item.date || ''} | ${item.category || ''}${item.multiUnit && item.unitLabel ? ' | ' + item.unitLabel : ''}</div>
             <div class="news-headline">${item.title}</div>
             <a href="${item.url}" target="_blank" class="news-link">View Document</a>
         </div>`).join('');
+    }
+
+    function filterNews(newsId, category, btn) {
+        const container = document.getElementById(newsId);
+        const allItems = window.newsData?.[newsId];
+        if (!container || !allItems) return;
+
+        // Update button states
+        const btns = btn.parentElement.querySelectorAll('.news-filter-btn');
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Filter items
+        let filtered = category === 'all'
+            ? allItems
+            : allItems.filter(item => item.category === category);
+
+        // Render filtered list (limit 15 for filtered, 10 for all)
+        const limit = category === 'all' ? 10 : 15;
+        container.innerHTML = filtered.length > 0
+            ? renderNewsItems(filtered.slice(0, limit))
+            : '<p style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem">No documents in this category.</p>';
     }
 
     let pieCounter = 0;
