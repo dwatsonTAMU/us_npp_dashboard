@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512070440 -->
+    <!-- Version: 202512070445 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -2025,39 +2025,51 @@ svg.leaflet-image-layer.leaflet-interactive path {
     let activeStatusFilters = new Set();
 
     function highlightByStatus() {
-        // Get all marker elements
-        const markerEls = document.querySelectorAll('.custom-marker');
-
         if (activeStatusFilters.size === 0) {
-            // No filters - remove all highlighting
-            markerEls.forEach(el => {
+            // No filters - remove all highlighting via CSS class on map
+            document.getElementById('map').classList.remove('status-filtering');
+            document.querySelectorAll('.custom-marker').forEach(el => {
                 el.classList.remove('highlighted', 'dimmed');
             });
             return;
         }
 
-        // Build set of coordinates that match the filters
+        // Enable filtering mode
+        document.getElementById('map').classList.add('status-filtering');
+
+        // Build set of coordinates where ANY unit matches the filter
         const matchingCoords = new Set();
         reactorData.forEach(r => {
             const status = r.performance?.status;
             if (status && activeStatusFilters.has(status) && r.coordinates) {
-                matchingCoords.add(`${r.coordinates.latitude.toFixed(4)},${r.coordinates.longitude.toFixed(4)}`);
+                // Use rounded coords as key (sites share coordinates)
+                matchingCoords.add(`${r.coordinates.latitude.toFixed(3)},${r.coordinates.longitude.toFixed(3)}`);
             }
         });
 
-        // Highlight matching markers, dim others
-        markers.forEach(m => {
-            const pos = m.getLatLng();
-            const key = `${pos.lat.toFixed(4)},${pos.lng.toFixed(4)}`;
-            const markerEl = m.getElement()?.querySelector('.custom-marker');
-            if (markerEl) {
-                if (matchingCoords.has(key)) {
-                    markerEl.classList.add('highlighted');
-                    markerEl.classList.remove('dimmed');
-                } else {
-                    markerEl.classList.remove('highlighted');
-                    markerEl.classList.add('dimmed');
+        // Apply highlighting to all marker elements
+        document.querySelectorAll('.custom-marker').forEach(markerEl => {
+            // Get marker position from the parent leaflet-marker-icon transform
+            const parent = markerEl.closest('.leaflet-marker-icon');
+            if (!parent) return;
+
+            // Find which marker this corresponds to
+            let isMatch = false;
+            markers.forEach(m => {
+                const mEl = m.getElement();
+                if (mEl === parent) {
+                    const pos = m.getLatLng();
+                    const key = `${pos.lat.toFixed(3)},${pos.lng.toFixed(3)}`;
+                    isMatch = matchingCoords.has(key);
                 }
+            });
+
+            if (isMatch) {
+                markerEl.classList.add('highlighted');
+                markerEl.classList.remove('dimmed');
+            } else {
+                markerEl.classList.remove('highlighted');
+                markerEl.classList.add('dimmed');
             }
         });
     }
