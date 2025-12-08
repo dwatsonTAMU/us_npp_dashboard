@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512082002 -->
+    <!-- Version: 202512082039 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1356,7 +1356,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div class="loading">Loading map...</div>
             </div>
             <div class="legend">
-                <div class="legend-title">Performance (30d CF)</div>
+                <div class="legend-title">Current Power</div>
                 <div class="legend-item"><div class="legend-marker" style="background:var(--perf-excellent)"></div> >90%</div>
                 <div class="legend-item"><div class="legend-marker" style="background:var(--perf-good)"></div> 80-90%</div>
                 <div class="legend-item"><div class="legend-marker" style="background:var(--perf-fair)"></div> 70-80%</div>
@@ -1501,11 +1501,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
         return 'critical';
     }
 
-    function getSitePerf(units) {
-        // Use 30-day capacity factor for coloring (less aggressive than 90-day)
-        const cfs = units.filter(u => u.performance?.capacity_factor_30d != null)
-                        .map(u => u.performance.capacity_factor_30d);
-        return cfs.length ? cfs.reduce((a,b) => a+b) / cfs.length : null;
+    function getSitePower(units) {
+        // Use current power for coloring
+        const powers = units.filter(u => u.performance?.current_power != null)
+                           .map(u => u.performance.current_power);
+        return powers.length ? powers.reduce((a,b) => a+b) / powers.length : null;
     }
 
     function getSiteStatus(units) {
@@ -1529,9 +1529,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         const sites = groupBySite(filtered);
 
         sites.forEach(site => {
-            const cf = getSitePerf(site.units);
-            const perfClass = getPerfClass(cf);
-            const isHigh = cf != null && cf >= 95;
+            const power = getSitePower(site.units);
+            const perfClass = getPerfClass(power);
+            const isHigh = power != null && power >= 95;
             const totalCap = site.units.reduce((s,u) => s + (u.capacity_mwe || 0), 0);
             const size = Math.round(14 * Math.min(1 + totalCap/4000, 1.4));
 
@@ -1544,7 +1544,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
             const marker = L.marker([site.coords.latitude, site.coords.longitude], { icon }).addTo(map);
             marker.bindPopup(() => createPopup(site), { maxWidth: 400 });
-            marker.bindTooltip(`${site.name}<br>CF: ${cf != null ? cf.toFixed(1) + '%' : 'N/A'}`);
+            marker.bindTooltip(`${site.name}<br>Power: ${power != null ? power.toFixed(0) + '%' : 'N/A'}`);
             markers.push(marker);
         });
     }
@@ -1578,7 +1578,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>
                 <div class="unit-metrics">
                     <span>Power: ${p.current_power || 0}%</span>
+                </div>
+                <div class="unit-metrics" style="margin-top:0.25rem">
+                    <span class="${getPerfClass(p.capacity_factor_30d) === 'excellent' ? 'cf-high' : getPerfClass(p.capacity_factor_30d) === 'critical' ? 'cf-low' : ''}">CF(30d): ${p.capacity_factor_30d != null ? p.capacity_factor_30d.toFixed(1) + '%' : 'N/A'}</span>
                     <span class="${getPerfClass(p.capacity_factor_90d) === 'excellent' ? 'cf-high' : getPerfClass(p.capacity_factor_90d) === 'critical' ? 'cf-low' : ''}">CF(90d): ${p.capacity_factor_90d != null ? p.capacity_factor_90d.toFixed(1) + '%' : 'N/A'}</span>
+                    <span class="${getPerfClass(p.capacity_factor_1095d) === 'excellent' ? 'cf-high' : getPerfClass(p.capacity_factor_1095d) === 'critical' ? 'cf-low' : ''}">CF(36mo): ${p.capacity_factor_1095d != null ? p.capacity_factor_1095d.toFixed(1) + '%' : 'N/A'}</span>
                 </div>
             </div>`;
         }).join('');
