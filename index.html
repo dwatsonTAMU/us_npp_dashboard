@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512082039 -->
+    <!-- Version: 202512082044 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1550,7 +1550,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
 
     function createPopup(site) {
-        const cf = getSitePerf(site.units);
+        const power = getSitePower(site.units);
         const status = getSiteStatus(site.units);
         const statusLabel = { full_power: 'ONLINE', reduced_power: 'REDUCED', low_power: 'LOW POWER', offline: 'OFFLINE' }[status];
         const statusClass = status === 'full_power' ? 'online' : status === 'offline' ? 'offline' : 'reduced';
