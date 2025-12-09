@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512091802 -->
+    <!-- Version: 202512091810 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1873,7 +1873,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
         // Clear
         ctx.clearRect(0, 0, width, height);
 
-        // Draw background grid - lighter for contrast
+        // Calculate X-axis label positions (used for vertical grid lines too)
+        const now = new Date();
+        const labelCount = dataLen > 100 ? 5 : dataLen > 40 ? 4 : 3;
+        const xLabelPositions = [];
+        for (let i = 0; i < labelCount; i++) {
+            const idx = Math.round(i * (dataLen - 1) / (labelCount - 1));
+            const x = padding.left + (idx / (dataLen - 1)) * chartW;
+            const weeksAgo = dataLen - 1 - idx;
+            const date = new Date(now.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000);
+            xLabelPositions.push({ x, date });
+        }
+
+        // Draw background grid - horizontal lines
         ctx.strokeStyle = '#e0e0e0';
         ctx.lineWidth = 1;
 
@@ -1884,6 +1896,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
             ctx.lineTo(width - padding.right, y);
             ctx.stroke();
         }
+
+        // Draw vertical grid lines at label positions
+        xLabelPositions.forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(pos.x, padding.top);
+            ctx.lineTo(pos.x, padding.top + chartH);
+            ctx.stroke();
+        });
 
         // Y-axis labels - BLACK for contrast
         ctx.fillStyle = '#000000';
@@ -1921,20 +1941,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
             ctx.stroke();
         });
 
-        // X-axis labels - BLACK for contrast
-        // Adjust label count based on range: more labels for longer ranges
+        // X-axis labels - BLACK for contrast (using pre-calculated positions)
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'center';
-        const now = new Date();
-        const labelCount = dataLen > 100 ? 5 : dataLen > 40 ? 4 : 3;
-        for (let i = 0; i < labelCount; i++) {
-            const idx = Math.round(i * (dataLen - 1) / (labelCount - 1));
-            const x = padding.left + (idx / (dataLen - 1)) * chartW;
-            const weeksAgo = dataLen - 1 - idx;
-            const date = new Date(now.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000);
-            ctx.fillText(date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), x, height - 8);
-        }
+        xLabelPositions.forEach(pos => {
+            ctx.fillText(pos.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), pos.x, height - 8);
+        });
 
         // Legend if multiple units - BLACK text
         if (unitData.length > 1) {
