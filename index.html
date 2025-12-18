@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202512182027 -->
+    <!-- Version: 202512182034 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -452,19 +452,27 @@
 
         .unit-header {
             display: flex;
-            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.5rem;
             margin-bottom: 0.3rem;
         }
 
-        .unit-name { font-weight: 600; font-size: 0.85rem; color: var(--tamu-maroon); }
+        .unit-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--tamu-maroon);
+            flex: 1;
+        }
 
         .unit-badge {
             background: var(--tamu-maroon);
             color: white;
-            padding: 0.1rem 0.4rem;
+            padding: 0.15rem 0.4rem;
             border-radius: 3px;
             font-size: 0.65rem;
             font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .unit-metrics {
