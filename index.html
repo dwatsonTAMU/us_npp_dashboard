@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601122003 -->
+    <!-- Version: 202601122012 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -89,10 +89,7 @@
         .search-input::placeholder { color: rgba(255,255,255,0.7); }
 
         .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
+            position: fixed;
             background: var(--bg-white);
             border: 1px solid var(--border-color);
             border-radius: 4px;
@@ -101,6 +98,7 @@
             overflow-y: auto;
             z-index: 9999;
             display: none;
+            width: 250px;
         }
 
         .search-results.active {
@@ -2199,6 +2197,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
             return Object.values(siteMap);
         })();
 
+        function positionSearchResults() {
+            const rect = searchInput.getBoundingClientRect();
+            searchResults.style.top = rect.bottom + 'px';
+            searchResults.style.left = rect.left + 'px';
+        }
+
         searchInput.oninput = e => {
             const q = e.target.value.toLowerCase().trim();
 
@@ -2216,6 +2220,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
             if (matches.length === 0) {
                 searchResults.innerHTML = '<div class="search-result-item"><span class="plant-info">No plants found</span></div>';
+                positionSearchResults();
                 searchResults.classList.add('active');
                 return;
             }
@@ -2247,6 +2252,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 };
             });
 
+            positionSearchResults();
             searchResults.classList.add('active');
         };
 
