@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601121802 -->
+    <!-- Version: 202601121854 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -63,6 +63,8 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 1rem;
+            position: relative;
+            z-index: 1001;
         }
 
         .header h1 {
@@ -77,6 +79,10 @@
             flex-wrap: wrap;
         }
 
+        .search-container {
+            position: relative;
+        }
+
         .search-input {
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.3);
@@ -84,10 +90,54 @@
             padding: 0.4rem 0.75rem;
             border-radius: 4px;
             font-size: 0.85rem;
-            width: 200px;
+            width: 250px;
         }
 
         .search-input::placeholder { color: rgba(255,255,255,0.7); }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: var(--shadow-md);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1002;
+            display: none;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover {
+            background: var(--bg-light);
+        }
+
+        .search-result-item .plant-name {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .search-result-item .plant-info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
 
         .header-btn {
             background: rgba(255,255,255,0.15);
@@ -109,6 +159,8 @@
             background: var(--bg-white);
             border-bottom: 1px solid var(--border-color);
             flex-wrap: wrap;
+            position: relative;
+            z-index: 1001;
         }
 
         .stat-item { display: flex; flex-direction: column; gap: 0.1rem; }
@@ -1292,7 +1344,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <h1>USA Nuclear Power Dashboard</h1>
         </div>
         <div class="header-controls">
-            <input type="text" class="search-input" id="search" placeholder="Search plants...">
+            <div class="search-container">
+                <input type="text" class="search-input" id="search" placeholder="Search plants..." autocomplete="off">
+                <div class="search-results" id="search-results"></div>
+            </div>
             <button class="header-btn" id="dark-toggle">Dark Mode</button>
         </div>
     </header>
@@ -2144,15 +2199,97 @@ svg.leaflet-image-layer.leaflet-interactive path {
             updateMarkers();
         };
 
-        document.getElementById('search').oninput = e => {
-            const q = e.target.value.toLowerCase();
-            if (q.length < 2) return;
-            const match = reactorData.find(r =>
-                r.name.toLowerCase().includes(q) ||
-                r.parent_company?.toLowerCase().includes(q)
-            );
-            if (match?.coordinates) {
-                map.setView([match.coordinates.latitude, match.coordinates.longitude], 8);
+        // Search autocomplete functionality
+        const searchInput = document.getElementById('search');
+        const searchResults = document.getElementById('search-results');
+
+        // Build unique sites list for search
+        const searchableSites = (() => {
+            const siteMap = {};
+            reactorData.forEach(r => {
+                const baseName = r.name.replace(/,?\s*(Unit\s*)?\d+$/i, '').trim();
+                if (!siteMap[baseName]) {
+                    siteMap[baseName] = {
+                        name: baseName,
+                        units: [],
+                        coords: r.coordinates,
+                        state: r.location?.split(',').pop()?.trim() || '',
+                        operator: r.parent_company || ''
+                    };
+                }
+                siteMap[baseName].units.push(r);
+            });
+            return Object.values(siteMap);
+        })();
+
+        searchInput.oninput = e => {
+            const q = e.target.value.toLowerCase().trim();
+
+            if (q.length < 1) {
+                searchResults.classList.remove('active');
+                return;
+            }
+
+            // Find matching sites
+            const matches = searchableSites.filter(site =>
+                site.name.toLowerCase().includes(q) ||
+                site.operator.toLowerCase().includes(q) ||
+                site.state.toLowerCase().includes(q)
+            ).slice(0, 8); // Limit to 8 results
+
+            if (matches.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-item"><span class="plant-info">No plants found</span></div>';
+                searchResults.classList.add('active');
+                return;
+            }
+
+            searchResults.innerHTML = matches.map(site => `
+                <div class="search-result-item" data-lat="${site.coords?.latitude}" data-lng="${site.coords?.longitude}">
+                    <div class="plant-name">${site.name}</div>
+                    <div class="plant-info">${site.state} · ${site.units.length} unit${site.units.length > 1 ? 's' : ''} · ${site.operator}</div>
+                </div>
+            `).join('');
+
+            // Bind click events to results
+            searchResults.querySelectorAll('.search-result-item').forEach(item => {
+                item.onclick = () => {
+                    const lat = parseFloat(item.dataset.lat);
+                    const lng = parseFloat(item.dataset.lng);
+                    if (lat && lng) {
+                        map.setView([lat, lng], 8);
+                        // Find and open the marker popup
+                        markers.forEach(m => {
+                            const pos = m.getLatLng();
+                            if (Math.abs(pos.lat - lat) < 0.01 && Math.abs(pos.lng - lng) < 0.01) {
+                                m.openPopup();
+                            }
+                        });
+                    }
+                    searchInput.value = item.querySelector('.plant-name').textContent;
+                    searchResults.classList.remove('active');
+                };
+            });
+
+            searchResults.classList.add('active');
+        };
+
+        // Hide results when clicking outside
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.search-container')) {
+                searchResults.classList.remove('active');
+            }
+        });
+
+        // Handle keyboard navigation
+        searchInput.onkeydown = e => {
+            const items = searchResults.querySelectorAll('.search-result-item');
+            const activeItem = searchResults.querySelector('.search-result-item:hover');
+
+            if (e.key === 'Escape') {
+                searchResults.classList.remove('active');
+                searchInput.blur();
+            } else if (e.key === 'Enter' && items.length > 0) {
+                items[0].click();
             }
         };
 
