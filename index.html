@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601132151 -->
+    <!-- Version: 202601132235 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1859,16 +1859,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
         // Collect weekly data from all units
         const unitData = site.units.map(u => ({
             name: u.name.match(/Unit\s*\d+|\d+$/)?.[0] || u.name,
-            data: u.performance?.weekly_cf || []
+            data: u.performance?.weekly_cf || [],
+            dataAsOf: u.performance?.data_as_of || null
         }));
 
         if (!unitData.length || !unitData[0].data.length) {
             return '<div class="chart-no-data">No performance data available</div>';
         }
 
-        // Store data for chart rendering
+        // Store data for chart rendering (include most recent data date)
         window.chartData = window.chartData || {};
-        window.chartData[chartId] = unitData;
+        window.chartData[chartId] = {
+            units: unitData,
+            dataAsOf: unitData.find(u => u.dataAsOf)?.dataAsOf || null
+        };
 
         return `
             <div class="chart-range-btns">
@@ -1900,7 +1904,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         if (!canvas || !window.chartData?.[chartId]) return;
 
         const ctx = canvas.getContext('2d');
-        const unitData = window.chartData[chartId];
+        const chartDataObj = window.chartData[chartId];
+        const unitData = chartDataObj.units;
+        const dataAsOf = chartDataObj.dataAsOf;
 
         // HiDPI/Retina support for crisp rendering
         const dpr = window.devicePixelRatio || 1;
@@ -1923,15 +1929,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
         // Clear
         ctx.clearRect(0, 0, width, height);
 
-        // Calculate X-axis label positions (used for vertical grid lines too)
-        const now = new Date();
+        // Calculate X-axis label positions - rightmost is most recent data date
+        const mostRecentDate = dataAsOf ? new Date(dataAsOf + 'T00:00:00') : new Date();
         const labelCount = dataLen > 100 ? 5 : dataLen > 40 ? 4 : 3;
         const xLabelPositions = [];
         for (let i = 0; i < labelCount; i++) {
             const idx = Math.round(i * (dataLen - 1) / (labelCount - 1));
             const x = padding.left + (idx / (dataLen - 1)) * chartW;
             const weeksAgo = dataLen - 1 - idx;
-            const date = new Date(now.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000);
+            const date = new Date(mostRecentDate.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000);
             xLabelPositions.push({ x, date });
         }
 
