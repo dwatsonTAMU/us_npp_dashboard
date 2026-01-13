@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601132244 -->
+    <!-- Version: 202601132250 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -524,6 +524,81 @@
             display: flex;
             gap: 0.25rem;
             margin-bottom: 0.5rem;
+        }
+
+        .chart-expand-btn {
+            margin-left: auto;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--border-color);
+            background: var(--bg-light);
+            border-radius: 3px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .chart-expand-btn:hover {
+            border-color: var(--tamu-maroon);
+            color: var(--tamu-maroon);
+        }
+
+        .chart-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-modal.active {
+            display: flex;
+        }
+
+        .chart-modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+        }
+
+        .chart-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-modal-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--tamu-maroon);
+        }
+
+        .chart-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .chart-modal-close:hover {
+            color: var(--tamu-maroon);
+        }
+
+        .chart-modal-canvas {
+            width: 100%;
+            height: 400px;
+        }
+
+        .chart-modal .chart-range-btns {
+            margin-bottom: 1rem;
         }
 
         .chart-range-btn {
@@ -1874,12 +1949,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
             dataAsOf: unitData.find(u => u.dataAsOf)?.dataAsOf || null
         };
 
+        // Get site name for modal title
+        const siteName = site.units[0]?.name?.replace(/,?\s*Unit\s*\d+$/i, '') || 'Performance';
+
         return `
             <div class="chart-range-btns">
                 <button class="chart-range-btn" onclick="updateChart('${chartId}', 13)">3M</button>
                 <button class="chart-range-btn" onclick="updateChart('${chartId}', 26)">6M</button>
                 <button class="chart-range-btn active" onclick="updateChart('${chartId}', 52)">1Y</button>
                 <button class="chart-range-btn" onclick="updateChart('${chartId}', 156)">3Y</button>
+                <button class="chart-expand-btn" onclick="expandChart('${chartId}', '${siteName.replace(/'/g, "\\'")}')">Expand</button>
             </div>
             <div class="chart-container">
                 <canvas id="${chartId}" class="chart-canvas"></canvas>
@@ -1997,7 +2076,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             ctx.stroke();
         });
 
-        // X-axis labels - BLACK for contrast (using pre-calculated positions)
+        // X-axis labels - format based on range (MMM DD for short, MMM 'YY for long)
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
         xLabelPositions.forEach((pos, idx) => {
@@ -2009,7 +2088,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
             } else {
                 ctx.textAlign = 'center';
             }
-            ctx.fillText(pos.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), pos.x, height - 8);
+            // Use day format for 3M/6M, year format with apostrophe for 1Y/3Y
+            let label;
+            if (weeks <= 26) {
+                label = pos.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } else {
+                const yr = pos.date.getFullYear().toString().slice(-2);
+                label = pos.date.toLocaleDateString('en-US', { month: 'short' }) + " '" + yr;
+            }
+            ctx.fillText(label, pos.x, height - 8);
         });
 
         // Legend if multiple units - BLACK text
@@ -2319,6 +2406,172 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
 
     document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
+
+    // Chart expand/modal functionality
+    let modalChartId = null;
+    let modalWeeks = 52;
+
+    function expandChart(chartId, siteName) {
+        modalChartId = chartId;
+        const modal = document.getElementById('chart-modal');
+        document.getElementById('chart-modal-title').textContent = siteName + ' - Capacity Factor';
+        modal.classList.add('active');
+        // Reset to 1Y view
+        modalWeeks = 52;
+        document.querySelectorAll('#chart-modal .chart-range-btn').forEach((b, i) => {
+            b.classList.toggle('active', i === 2);
+        });
+        setTimeout(() => renderModalChart(), 50);
+    }
+
+    function closeChartModal() {
+        document.getElementById('chart-modal').classList.remove('active');
+        modalChartId = null;
+    }
+
+    function updateModalChart(weeks) {
+        modalWeeks = weeks;
+        renderModalChart();
+    }
+
+    function renderModalChart() {
+        if (!modalChartId || !window.chartData?.[modalChartId]) return;
+
+        const canvas = document.getElementById('modal-chart-canvas');
+        const ctx = canvas.getContext('2d');
+        const chartDataObj = window.chartData[modalChartId];
+        const unitData = chartDataObj.units;
+        const dataAsOf = chartDataObj.dataAsOf;
+
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.parentElement.offsetWidth;
+        const height = 400;
+
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
+
+        const weeks = modalWeeks;
+        const maxLen = Math.max(...unitData.map(u => u.data.length));
+        const dataLen = Math.min(weeks, maxLen);
+        const padding = { left: 50, right: 20, top: 30, bottom: 35 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Calculate dates from most recent data date
+        const mostRecentDate = dataAsOf ? new Date(dataAsOf + 'T00:00:00') : new Date();
+        const labelCount = dataLen > 100 ? 6 : dataLen > 40 ? 5 : 4;
+        const xLabelPositions = [];
+        for (let i = 0; i < labelCount; i++) {
+            const idx = Math.round(i * (dataLen - 1) / (labelCount - 1));
+            const x = padding.left + (idx / (dataLen - 1)) * chartW;
+            const weeksAgo = dataLen - 1 - idx;
+            const date = new Date(mostRecentDate.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000);
+            xLabelPositions.push({ x, date });
+        }
+
+        // Grid
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = padding.top + (chartH * i / 4);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+        }
+        xLabelPositions.forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(pos.x, padding.top);
+            ctx.lineTo(pos.x, padding.top + chartH);
+            ctx.stroke();
+        });
+
+        // Y-axis labels
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= 4; i++) {
+            const y = padding.top + (chartH * i / 4);
+            ctx.fillText((100 - i * 25) + '%', padding.left - 8, y + 4);
+        }
+
+        // Lines
+        const colors = ['#500000', '#0066cc', '#228B22', '#cc6600'];
+        unitData.forEach((unit, unitIdx) => {
+            const data = unit.data.slice(-dataLen);
+            if (data.length < 2) return;
+            ctx.strokeStyle = colors[unitIdx % colors.length];
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            data.forEach((val, i) => {
+                if (val === null) return;
+                const x = padding.left + (i / (data.length - 1)) * chartW;
+                const y = padding.top + chartH - (val / 100) * chartH;
+                if (i === 0 || data[i-1] === null) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        });
+
+        // X-axis labels - format based on range
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+        xLabelPositions.forEach((pos, idx) => {
+            if (idx === 0) ctx.textAlign = 'left';
+            else if (idx === xLabelPositions.length - 1) ctx.textAlign = 'right';
+            else ctx.textAlign = 'center';
+
+            let label;
+            if (weeks <= 26) {
+                label = pos.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } else {
+                const yr = pos.date.getFullYear().toString().slice(-2);
+                label = pos.date.toLocaleDateString('en-US', { month: 'short' }) + " '" + yr;
+            }
+            ctx.fillText(label, pos.x, height - 10);
+        });
+
+        // Legend
+        if (unitData.length > 1) {
+            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'left';
+            unitData.forEach((unit, i) => {
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(padding.left + i * 70, 8, 14, 12);
+                ctx.fillStyle = '#000000';
+                ctx.fillText(unit.name, padding.left + i * 70 + 18, 18);
+            });
+        }
+    }
+
+    // Close modal on escape or background click
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChartModal(); });
     </script>
+
+    <!-- Chart Modal -->
+    <div id="chart-modal" class="chart-modal" onclick="if(event.target === this) closeChartModal()">
+        <div class="chart-modal-content">
+            <div class="chart-modal-header">
+                <div id="chart-modal-title" class="chart-modal-title">Performance</div>
+                <button class="chart-modal-close" onclick="closeChartModal()">&times;</button>
+            </div>
+            <div class="chart-range-btns">
+                <button class="chart-range-btn" onclick="modalWeeks=13; updateModalChart(13); this.parentElement.querySelectorAll('.chart-range-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active')">3M</button>
+                <button class="chart-range-btn" onclick="modalWeeks=26; updateModalChart(26); this.parentElement.querySelectorAll('.chart-range-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active')">6M</button>
+                <button class="chart-range-btn active" onclick="modalWeeks=52; updateModalChart(52); this.parentElement.querySelectorAll('.chart-range-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active')">1Y</button>
+                <button class="chart-range-btn" onclick="modalWeeks=156; updateModalChart(156); this.parentElement.querySelectorAll('.chart-range-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active')">3Y</button>
+            </div>
+            <div class="chart-container" style="height:400px">
+                <canvas id="modal-chart-canvas" class="chart-modal-canvas"></canvas>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
