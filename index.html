@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601132235 -->
+    <!-- Version: 202601132244 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -2000,8 +2000,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
         // X-axis labels - BLACK for contrast (using pre-calculated positions)
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'center';
-        xLabelPositions.forEach(pos => {
+        xLabelPositions.forEach((pos, idx) => {
+            // Left-align first label, right-align last label, center middle ones
+            if (idx === 0) {
+                ctx.textAlign = 'left';
+            } else if (idx === xLabelPositions.length - 1) {
+                ctx.textAlign = 'right';
+            } else {
+                ctx.textAlign = 'center';
+            }
             ctx.fillText(pos.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), pos.x, height - 8);
         });
 
