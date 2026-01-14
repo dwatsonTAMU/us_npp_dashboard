@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601141403 -->
+    <!-- Version: 202601141606 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -2009,8 +2009,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
         ctx.clearRect(0, 0, width, height);
 
         // Calculate X-axis label positions - rightmost is most recent data date
+        // Adaptive label count: fewer on narrow screens to prevent overlap
         const mostRecentDate = dataAsOf ? new Date(dataAsOf + 'T00:00:00') : new Date();
-        const labelCount = dataLen > 100 ? 5 : dataLen > 40 ? 4 : 3;
+        const isNarrow = width < 280;
+        const labelCount = isNarrow ? 3 : (dataLen > 100 ? 5 : dataLen > 40 ? 4 : 3);
         const xLabelPositions = [];
         for (let i = 0; i < labelCount; i++) {
             const idx = Math.round(i * (dataLen - 1) / (labelCount - 1));
@@ -2076,6 +2078,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
             ctx.stroke();
         });
 
+        // X-axis tick marks - bold black ticks at label positions
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        xLabelPositions.forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(pos.x, padding.top + chartH);
+            ctx.lineTo(pos.x, padding.top + chartH + 5);
+            ctx.stroke();
+        });
+
         // X-axis labels - format based on range (MMM DD for short, MMM 'YY for long)
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -2096,7 +2108,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 const yr = pos.date.getFullYear().toString().slice(-2);
                 label = pos.date.toLocaleDateString('en-US', { month: 'short' }) + " '" + yr;
             }
-            ctx.fillText(label, pos.x, height - 8);
+            ctx.fillText(label, pos.x, height - 6);
         });
 
         // Legend if multiple units - BLACK text
@@ -2520,6 +2532,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
             ctx.stroke();
         });
 
+        // X-axis tick marks - bold black ticks at label positions
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        xLabelPositions.forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(pos.x, padding.top + chartH);
+            ctx.lineTo(pos.x, padding.top + chartH + 6);
+            ctx.stroke();
+        });
+
         // X-axis labels - format based on range
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -2535,7 +2557,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 const yr = pos.date.getFullYear().toString().slice(-2);
                 label = pos.date.toLocaleDateString('en-US', { month: 'short' }) + " '" + yr;
             }
-            ctx.fillText(label, pos.x, height - 10);
+            ctx.fillText(label, pos.x, height - 8);
         });
 
         // Legend
