@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>USA Nuclear Power Dashboard | Texas A&M AESL</title>
-    <!-- Version: 202601142011 -->
+    <!-- Version: 202601150356 -->
     <style>
         /* Using system fonts for self-contained HTML */
 
@@ -1460,7 +1460,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             </div>
 
             <div class="sidebar-section">
-                <div class="sidebar-title">Currently in Outage</div>
+                <div class="sidebar-title">Currently Offline</div>
                 <ul class="performer-list" id="bottom-list"></ul>
             </div>
         </aside>
@@ -1658,7 +1658,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
             const marker = L.marker([site.coords.latitude, site.coords.longitude], { icon }).addTo(map);
             marker.bindPopup(() => createPopup(site), { maxWidth: 400 });
-            marker.bindTooltip(`${site.name}<br>Power: ${power != null ? power.toFixed(0) + '%' : 'N/A'}`);
+            // Build tooltip with individual unit powers for multi-unit sites
+            let tooltipText = site.name;
+            if (site.units.length > 1) {
+                tooltipText += '<br>' + site.units.map(u => {
+                    const unitNum = u.name.match(/Unit\s*(\d+)|\s(\d+)$/)?.[1] || u.name.match(/\d+$/)?.[0] || '';
+                    const unitPower = u.performance?.current_power;
+                    return `Unit ${unitNum}: ${unitPower != null ? unitPower + '%' : 'N/A'}`;
+                }).join('<br>');
+            } else {
+                tooltipText += `<br>Power: ${power != null ? power.toFixed(0) + '%' : 'N/A'}`;
+            }
+            marker.bindTooltip(tooltipText);
             markers.push(marker);
         });
     }
@@ -2198,19 +2209,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
             </li>`
         ).join('');
 
-        // Show plants currently in outage or reduced power (< 50%)
-        const inOutage = reactorData
-            .filter(r => r.performance?.current_power != null && r.performance.current_power < 50)
-            .sort((a,b) => a.performance.current_power - b.performance.current_power);
+        // Show plants currently offline (0% power only)
+        const offline = reactorData
+            .filter(r => r.performance?.current_power != null && r.performance.current_power === 0)
+            .sort((a,b) => a.name.localeCompare(b.name));
 
-        document.getElementById('bottom-list').innerHTML = inOutage.length > 0
-            ? inOutage.map(r =>
+        document.getElementById('bottom-list').innerHTML = offline.length > 0
+            ? offline.map(r =>
                 `<li class="performer-item" data-lat="${r.coordinates?.latitude}" data-lng="${r.coordinates?.longitude}">
                     <span>${getBaseName(r.name)}</span>
-                    <span class="cf-low">${r.performance.current_power}%</span>
+                    <span class="cf-low">0%</span>
                 </li>`
             ).join('')
-            : '<li style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem">All units operating normally</li>';
+            : '<li style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem">All units online</li>';
 
         // Re-bind click events for performer items
         bindPerformerClicks();
